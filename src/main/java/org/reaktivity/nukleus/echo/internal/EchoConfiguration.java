@@ -15,34 +15,21 @@
  */
 package org.reaktivity.nukleus.echo.internal;
 
-import org.agrona.DirectBuffer;
-import org.agrona.concurrent.UnsafeBuffer;
 import org.reaktivity.nukleus.Configuration;
 
 public class EchoConfiguration extends Configuration
 {
-    public static final BooleanPropertyDef SSE_INITIAL_COMMENT_ENABLED;
-
-    private static final DirectBuffer INITIAL_COMMENT_DEFAULT = new UnsafeBuffer(new byte[0]);
-
-    private static final ConfigurationDef SSE_CONFIG;
+    private static final ConfigurationDef ECHO_CONFIG;
 
     static
     {
-        final ConfigurationDef config = new ConfigurationDef("nukleus.sse");
-        SSE_INITIAL_COMMENT_ENABLED = config.property("initial.comment.enabled", false);
-        SSE_CONFIG = config;
+        final ConfigurationDef config = new ConfigurationDef(String.format("nukleus.%s", EchoNukleus.NAME));
+        ECHO_CONFIG = config;
     }
 
     public EchoConfiguration(
         Configuration config)
     {
-        super(SSE_CONFIG, config);
+        super(ECHO_CONFIG, config);
     }
-
-    public DirectBuffer initialComment()
-    {
-        return SSE_INITIAL_COMMENT_ENABLED.getAsBoolean(this) ? INITIAL_COMMENT_DEFAULT : null;
-    }
-
 }
