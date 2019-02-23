@@ -1,0 +1,48 @@
+/**
+ * Copyright 2016-2018 The Reaktivity Project
+ *
+ * The Reaktivity Project licenses this file to you under the Apache License,
+ * version 2.0 (the "License"); you may not use this file except in compliance
+ * with the License. You may obtain a copy of the License at:
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations
+ * under the License.
+ */
+package org.reaktivity.nukleus.echo.internal;
+
+import org.agrona.DirectBuffer;
+import org.agrona.concurrent.UnsafeBuffer;
+import org.reaktivity.nukleus.Configuration;
+
+public class EchoConfiguration extends Configuration
+{
+    public static final BooleanPropertyDef SSE_INITIAL_COMMENT_ENABLED;
+
+    private static final DirectBuffer INITIAL_COMMENT_DEFAULT = new UnsafeBuffer(new byte[0]);
+
+    private static final ConfigurationDef SSE_CONFIG;
+
+    static
+    {
+        final ConfigurationDef config = new ConfigurationDef("nukleus.sse");
+        SSE_INITIAL_COMMENT_ENABLED = config.property("initial.comment.enabled", false);
+        SSE_CONFIG = config;
+    }
+
+    public EchoConfiguration(
+        Configuration config)
+    {
+        super(SSE_CONFIG, config);
+    }
+
+    public DirectBuffer initialComment()
+    {
+        return SSE_INITIAL_COMMENT_ENABLED.getAsBoolean(this) ? INITIAL_COMMENT_DEFAULT : null;
+    }
+
+}
