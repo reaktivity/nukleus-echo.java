@@ -8,6 +8,7 @@
   <artifactId>nukleus-echo</artifactId>
   <version>develop-SNAPSHOT</version>
   <name>Echo Nukleus Implementation</name>
+  <description>Echo Nukleus Implementation</description>
   <url>https://github.com/reaktivity/nukleus-echo.java</url>
 
   <licenses>
@@ -53,7 +54,7 @@
 
     <nukleus.plugin.version>0.33</nukleus.plugin.version>
 
-    <nukleus.echo.spec.version>develop-SNAPSHOT</nukleus.echo.spec.version>
+    <nukleus.echo.spec.version>0.1</nukleus.echo.spec.version>
     <reaktor.version>0.78</reaktor.version>
   </properties>
 
