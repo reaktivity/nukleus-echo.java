@@ -93,33 +93,31 @@ public final class EchoServerFactory implements StreamFactory
 
         if ((streamId & 0x0000_0000_0000_0001L) != 0L)
         {
-            newStream = newAcceptStream(begin, throttle);
+            newStream = newInitialStream(begin, throttle);
         }
 
         return newStream;
     }
 
-    private MessageConsumer newAcceptStream(
+    private MessageConsumer newInitialStream(
         final BeginFW begin,
-        final MessageConsumer acceptReply)
+        final MessageConsumer sender)
     {
-        final long acceptRouteId = begin.routeId();
+        final long routeId = begin.routeId();
 
         final MessagePredicate filter = (t, b, o, l) -> true;
-        final RouteFW route = router.resolve(acceptRouteId, begin.authorization(), filter, wrapRoute);
+        final RouteFW route = router.resolve(routeId, begin.authorization(), filter, wrapRoute);
 
         MessageConsumer newStream = null;
 
         if (route != null)
         {
-            final long acceptInitialId = begin.streamId();
-            final long acceptReplyId = supplyReplyId.applyAsLong(acceptInitialId);
+            final long initialId = begin.streamId();
 
             newStream = new EchoServer(
-                    acceptReply,
-                    acceptRouteId,
-                    acceptInitialId,
-                    acceptReplyId)::handleStream;
+                    sender,
+                    routeId,
+                    initialId)::onStream;
         }
 
         return newStream;
@@ -136,68 +134,67 @@ public final class EchoServerFactory implements StreamFactory
 
     private final class EchoServer
     {
-        private final MessageConsumer acceptReply;
-        private final long acceptRouteId;
-        private final long acceptInitialId;
-        private final long acceptReplyId;
+        private final MessageConsumer receiver;
+        private final long routeId;
+        private final long initialId;
+        private final long replyId;
 
         private EchoServer(
-            MessageConsumer acceptReply,
-            long acceptRouteId,
-            long acceptInitialId,
-            long acceptReplyId)
+            MessageConsumer receiver,
+            long routeId,
+            long initialId)
         {
-            this.acceptReply = acceptReply;
-            this.acceptRouteId = acceptRouteId;
-            this.acceptInitialId = acceptInitialId;
-            this.acceptReplyId = acceptReplyId;
+            this.receiver = receiver;
+            this.routeId = routeId;
+            this.initialId = initialId;
+            this.replyId = supplyReplyId.applyAsLong(initialId);
         }
 
-        private void handleStream(
-            int msgTypeId,
-            DirectBuffer buffer,
-            int index,
-            int length)
+        private void onStream(
+            final int msgTypeId,
+            final DirectBuffer buffer,
+            final int index,
+            final int length)
         {
             switch (msgTypeId)
             {
             case BeginFW.TYPE_ID:
                 final BeginFW begin = beginRO.wrap(buffer, index, index + length);
-                handleBegin(begin);
+                onBegin(begin);
                 break;
             case DataFW.TYPE_ID:
                 final DataFW data = dataRO.wrap(buffer, index, index + length);
-                handleData(data);
+                onData(data);
                 break;
             case EndFW.TYPE_ID:
                 final EndFW end = endRO.wrap(buffer, index, index + length);
-                handleEnd(end);
+                onEnd(end);
                 break;
             case AbortFW.TYPE_ID:
                 final AbortFW abort = abortRO.wrap(buffer, index, index + length);
-                handleAbort(abort);
+                onAbort(abort);
                 break;
             default:
-                doReset(acceptReply, acceptRouteId, acceptInitialId);
+                doReset(receiver, routeId, initialId, supplyTrace.getAsLong());
                 break;
             }
         }
 
-        private void handleThrottle(
-            int msgTypeId,
-            DirectBuffer buffer,
-            int index,
-            int length)
+        private void onThrottle(
+            final int msgTypeId,
+            final DirectBuffer buffer,
+            final int index,
+            final int length)
         {
             switch (msgTypeId)
             {
             case ResetFW.TYPE_ID:
                 final ResetFW reset = resetRO.wrap(buffer, index, index + length);
-                handleReset(reset);
+                onReset(reset);
                 break;
             case WindowFW.TYPE_ID:
                 final WindowFW window = windowRO.wrap(buffer, index, index + length);
-                handleWindow(window);
+                onWindow(window);
                 break;
             default:
                 // ignore
@@ -205,63 +202,68 @@ public final class EchoServerFactory implements StreamFactory
             }
         }
 
-        private void handleBegin(
-            BeginFW begin)
+        private void onBegin(
+            final BeginFW begin)
         {
-            final long acceptCorrelationId = begin.correlationId();
-            final long newTraceId = supplyTrace.getAsLong();
+            final long correlationId = begin.correlationId();
+            final long traceId = begin.trace();
 
-            router.setThrottle(acceptReplyId, this::handleThrottle);
-            doBegin(acceptReply, acceptRouteId, acceptReplyId, newTraceId, acceptCorrelationId);
+            router.setThrottle(replyId, this::onThrottle);
+            doBegin(receiver, routeId, replyId, traceId, correlationId);
         }
 
-        private void handleData(
-            DataFW data)
+        private void onData(
+            final DataFW data)
         {
+            final long traceId = data.trace();
             final int flags = data.flags();
             final long groupId = data.groupId();
             final int padding = data.padding();
             final OctetsFW payload = data.payload();
             final OctetsFW extension = data.extension();
 
-            doData(acceptReply, acceptRouteId, acceptReplyId, flags, groupId, padding, payload, extension);
+            doData(receiver, routeId, replyId, traceId, flags, groupId, padding, payload, extension);
         }
 
-        private void handleEnd(
-            EndFW end)
+        private void onEnd(
+            final EndFW end)
         {
-            doEnd(acceptReply, acceptRouteId, acceptReplyId);
+            final long traceId = end.trace();
+            doEnd(receiver, routeId, replyId, traceId);
         }
 
-        private void handleAbort(
-            AbortFW abort)
+        private void onAbort(
+            final AbortFW abort)
         {
-            doAbort(acceptReply, acceptRouteId, acceptReplyId);
+            final long traceId = abort.trace();
+            doAbort(receiver, routeId, replyId, traceId);
         }
 
-        private void handleReset(
-            ResetFW reset)
+        private void onReset(
+            final ResetFW reset)
         {
-            doReset(acceptReply, acceptRouteId, acceptInitialId);
+            final long traceId = reset.trace();
+            doReset(receiver, routeId, initialId, traceId);
         }
 
-        private void handleWindow(
-            WindowFW window)
+        private void onWindow(
+            final WindowFW window)
         {
+            final long traceId = window.trace();
             final int credit = window.credit();
             final int padding = window.padding();
             final long groupId = window.groupId();
 
-            doWindow(acceptReply, acceptRouteId, acceptInitialId, credit, padding, groupId);
+            doWindow(receiver, routeId, initialId, traceId, credit, padding, groupId);
         }
     }
 
     private void doBegin(
-        MessageConsumer receiver,
-        long routeId,
-        long streamId,
-        long traceId,
-        long correlationId)
+        final MessageConsumer receiver,
+        final long routeId,
+        final long streamId,
+        final long traceId,
+        final long correlationId)
     {
         final BeginFW begin = beginRW.wrap(writeBuffer, 0, writeBuffer.capacity())
                 .routeId(routeId)
@@ -274,19 +276,20 @@ public final class EchoServerFactory implements StreamFactory
     }
 
     private void doData(
-        MessageConsumer receiver,
-        long routeId,
-        long streamId,
-        int flags,
-        long groupId,
-        int padding,
-        OctetsFW payload,
-        OctetsFW extension)
+        final MessageConsumer receiver,
+        final long routeId,
+        final long streamId,
+        final long traceId,
+        final int flags,
+        final long groupId,
+        final int padding,
+        final OctetsFW payload,
+        final OctetsFW extension)
     {
         final DataFW data = dataRW.wrap(writeBuffer, 0, writeBuffer.capacity())
                 .routeId(routeId)
                 .streamId(streamId)
-                .trace(supplyTrace.getAsLong())
+                .trace(traceId)
                 .flags(flags)
                 .groupId(groupId)
                 .padding(padding)
@@ -298,28 +301,30 @@ public final class EchoServerFactory implements StreamFactory
     }
 
     private void doAbort(
-        MessageConsumer receiver,
-        long routeId,
-        long streamId)
+        final MessageConsumer receiver,
+        final long routeId,
+        final long streamId,
+        final long traceId)
     {
         final AbortFW abort = abortRW.wrap(writeBuffer, 0, writeBuffer.capacity())
                 .routeId(routeId)
                 .streamId(streamId)
-                .trace(supplyTrace.getAsLong())
+                .trace(traceId)
                 .build();
 
         receiver.accept(abort.typeId(), abort.buffer(), abort.offset(), abort.sizeof());
     }
 
     private void doEnd(
-        MessageConsumer receiver,
-        long routeId,
-        long streamId)
+        final MessageConsumer receiver,
+        final long routeId,
+        final long streamId,
+        final long traceId)
     {
         final EndFW end = endRW.wrap(writeBuffer, 0, writeBuffer.capacity())
                 .routeId(routeId)
                 .streamId(streamId)
-                .trace(supplyTrace.getAsLong())
+                .trace(traceId)
                 .build();
 
         receiver.accept(end.typeId(), end.buffer(), end.offset(), end.sizeof());
@@ -329,6 +334,7 @@ public final class EchoServerFactory implements StreamFactory
         final MessageConsumer sender,
         final long routeId,
         final long streamId,
+        final long traceId,
         final int credit,
         final int padding,
         final long groupId)
@@ -336,7 +342,7 @@ public final class EchoServerFactory implements StreamFactory
         final WindowFW window = windowRW.wrap(writeBuffer, 0, writeBuffer.capacity())
                 .routeId(routeId)
                 .streamId(streamId)
-                .trace(supplyTrace.getAsLong())
+                .trace(traceId)
                 .credit(credit)
                 .padding(padding)
                 .groupId(groupId)
@@ -348,12 +354,13 @@ public final class EchoServerFactory implements StreamFactory
     private void doReset(
         final MessageConsumer sender,
         final long routeId,
-        final long streamId)
+        final long streamId,
+        final long traceId)
     {
         final ResetFW reset = resetRW.wrap(writeBuffer, 0, writeBuffer.capacity())
                .routeId(routeId)
                .streamId(streamId)
-               .trace(supplyTrace.getAsLong())
+               .trace(traceId)
                .build();
 
         sender.accept(reset.typeId(), reset.buffer(), reset.offset(), reset.sizeof());
