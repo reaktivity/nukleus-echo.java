@@ -1,4 +1,4 @@
-# Echo Nukleus Java Implementation
+# Echo Nukleus Implementation
 
 [![Build Status][build-status-image]][build-status]
 
