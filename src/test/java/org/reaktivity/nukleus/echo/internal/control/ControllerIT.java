@@ -17,6 +17,7 @@ package org.reaktivity.nukleus.echo.internal.control;
 
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.junit.rules.RuleChain.outerRule;
+import static org.reaktivity.nukleus.route.RouteKind.SERVER;
 
 import org.junit.Rule;
 import org.junit.Test;
@@ -57,7 +58,7 @@ public class ControllerIT
         k3po.start();
 
         reaktor.controller(EchoController.class)
-               .routeServer("echo#0", "echo#0")
+               .route(SERVER, "echo#0", "echo#0")
                .get();
 
         k3po.finish();
@@ -73,7 +74,7 @@ public class ControllerIT
         k3po.start();
 
         long routeId = reaktor.controller(EchoController.class)
-                .routeServer("echo#0", "echo#0")
+                .route(SERVER, "echo#0", "echo#0")
                 .get();
 
         k3po.notifyBarrier("ROUTED_SERVER");
