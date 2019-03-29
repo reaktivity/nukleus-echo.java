@@ -205,11 +205,10 @@ public final class EchoServerFactory implements StreamFactory
         private void onBegin(
             final BeginFW begin)
         {
-            final long correlationId = begin.correlationId();
             final long traceId = begin.trace();
 
             router.setThrottle(replyId, this::onThrottle);
-            doBegin(receiver, routeId, replyId, traceId, correlationId);
+            doBegin(receiver, routeId, replyId, traceId);
         }
 
         private void onData(
@@ -262,14 +261,12 @@ public final class EchoServerFactory implements StreamFactory
         final MessageConsumer receiver,
         final long routeId,
         final long streamId,
-        final long traceId,
-        final long correlationId)
+        final long traceId)
     {
         final BeginFW begin = beginRW.wrap(writeBuffer, 0, writeBuffer.capacity())
                 .routeId(routeId)
                 .streamId(streamId)
                 .trace(traceId)
-                .correlationId(correlationId)
                 .build();
 
         receiver.accept(begin.typeId(), begin.buffer(), begin.offset(), begin.sizeof());
