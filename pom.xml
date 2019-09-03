@@ -6,7 +6,7 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>org.reaktivity</groupId>
   <artifactId>nukleus-echo</artifactId>
-  <version>develop-SNAPSHOT</version>
+  <version>0.9</version>
   <name>Echo Nukleus Implementation</name>
   <description>Echo Nukleus Implementation</description>
   <url>https://github.com/reaktivity/nukleus-echo.java</url>
