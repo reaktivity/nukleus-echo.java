@@ -54,7 +54,7 @@
 
     <nukleus.plugin.version>0.42</nukleus.plugin.version>
 
-    <nukleus.echo.spec.version>develop-SNAPSHOT</nukleus.echo.spec.version>
+    <nukleus.echo.spec.version>0.9</nukleus.echo.spec.version>
     <reaktor.version>0.100</reaktor.version>
   </properties>
 
