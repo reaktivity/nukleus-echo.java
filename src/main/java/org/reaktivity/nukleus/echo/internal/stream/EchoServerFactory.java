@@ -217,11 +217,11 @@ public final class EchoServerFactory implements StreamFactory
             final long traceId = data.trace();
             final int flags = data.flags();
             final long groupId = data.groupId();
-            final int padding = data.padding();
+            final int reserved = data.reserved();
             final OctetsFW payload = data.payload();
             final OctetsFW extension = data.extension();
 
-            doData(receiver, routeId, replyId, traceId, flags, groupId, padding, payload, extension);
+            doData(receiver, routeId, replyId, traceId, flags, groupId, reserved, payload, extension);
         }
 
         private void onEnd(
@@ -279,7 +279,7 @@ public final class EchoServerFactory implements StreamFactory
         final long traceId,
         final int flags,
         final long groupId,
-        final int padding,
+        final int reserved,
         final OctetsFW payload,
         final OctetsFW extension)
     {
@@ -289,7 +289,7 @@ public final class EchoServerFactory implements StreamFactory
                 .trace(traceId)
                 .flags(flags)
                 .groupId(groupId)
-                .padding(padding)
+                .reserved(reserved)
                 .payload(payload)
                 .extension(extension)
                 .build();
