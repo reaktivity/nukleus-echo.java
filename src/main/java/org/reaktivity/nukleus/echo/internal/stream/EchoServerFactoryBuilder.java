@@ -15,8 +15,6 @@
  */
 package org.reaktivity.nukleus.echo.internal.stream;
 
-import java.util.function.IntUnaryOperator;
-import java.util.function.LongFunction;
 import java.util.function.LongSupplier;
 import java.util.function.LongUnaryOperator;
 import java.util.function.Supplier;
@@ -79,20 +77,6 @@ public final class EchoServerFactoryBuilder implements StreamFactoryBuilder
         LongSupplier supplyTrace)
     {
         this.supplyTrace = supplyTrace;
-        return this;
-    }
-
-    @Override
-    public EchoServerFactoryBuilder setGroupBudgetClaimer(
-        LongFunction<IntUnaryOperator> groupBudgetClaimer)
-    {
-        return this;
-    }
-
-    @Override
-    public EchoServerFactoryBuilder setGroupBudgetReleaser(
-        LongFunction<IntUnaryOperator> groupBudgetReleaser)
-    {
         return this;
     }
 
