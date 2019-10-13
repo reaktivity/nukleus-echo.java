@@ -17,7 +17,6 @@ package org.reaktivity.nukleus.echo.internal.stream;
 
 import static java.util.Objects.requireNonNull;
 
-import java.util.function.LongSupplier;
 import java.util.function.LongUnaryOperator;
 
 import org.agrona.DirectBuffer;
@@ -27,6 +26,7 @@ import org.reaktivity.nukleus.echo.internal.types.OctetsFW;
 import org.reaktivity.nukleus.echo.internal.types.control.RouteFW;
 import org.reaktivity.nukleus.echo.internal.types.stream.AbortFW;
 import org.reaktivity.nukleus.echo.internal.types.stream.BeginFW;
+import org.reaktivity.nukleus.echo.internal.types.stream.ChallengeFW;
 import org.reaktivity.nukleus.echo.internal.types.stream.DataFW;
 import org.reaktivity.nukleus.echo.internal.types.stream.EndFW;
 import org.reaktivity.nukleus.echo.internal.types.stream.ResetFW;
@@ -51,16 +51,17 @@ public final class EchoServerFactory implements StreamFactory
     private final EndFW.Builder endRW = new EndFW.Builder();
     private final AbortFW.Builder abortRW = new AbortFW.Builder();
 
-    private final WindowFW windowRO = new WindowFW();
     private final ResetFW resetRO = new ResetFW();
+    private final WindowFW windowRO = new WindowFW();
+    private final ChallengeFW challengeRO = new ChallengeFW();
 
-    private final WindowFW.Builder windowRW = new WindowFW.Builder();
     private final ResetFW.Builder resetRW = new ResetFW.Builder();
+    private final WindowFW.Builder windowRW = new WindowFW.Builder();
+    private final ChallengeFW.Builder challengeRW = new ChallengeFW.Builder();
 
     private final RouteManager router;
     private final MutableDirectBuffer writeBuffer;
     private final LongUnaryOperator supplyReplyId;
-    private final LongSupplier supplyTrace;
 
     private final MessageFunction<RouteFW> wrapRoute;
 
@@ -68,13 +69,11 @@ public final class EchoServerFactory implements StreamFactory
         EchoConfiguration config,
         RouteManager router,
         MutableDirectBuffer writeBuffer,
-        LongUnaryOperator supplyReplyId,
-        LongSupplier supplyTrace)
+        LongUnaryOperator supplyReplyId)
     {
         this.router = requireNonNull(router);
         this.writeBuffer = requireNonNull(writeBuffer);
         this.supplyReplyId = requireNonNull(supplyReplyId);
-        this.supplyTrace = requireNonNull(supplyTrace);
         this.wrapRoute = this::wrapRoute;
     }
 
@@ -117,7 +116,7 @@ public final class EchoServerFactory implements StreamFactory
             newStream = new EchoServer(
                     sender,
                     routeId,
-                    initialId)::onStream;
+                    initialId)::onMessage;
         }
 
         return newStream;
@@ -150,7 +149,7 @@ public final class EchoServerFactory implements StreamFactory
             this.replyId = supplyReplyId.applyAsLong(initialId);
         }
 
-        private void onStream(
+        private void onMessage(
             final int msgTypeId,
             final DirectBuffer buffer,
             final int index,
@@ -174,20 +173,6 @@ public final class EchoServerFactory implements StreamFactory
                 final AbortFW abort = abortRO.wrap(buffer, index, index + length);
                 onAbort(abort);
                 break;
-            default:
-                doReset(receiver, routeId, initialId, supplyTrace.getAsLong());
-                break;
-            }
-        }
-
-        private void onThrottle(
-            final int msgTypeId,
-            final DirectBuffer buffer,
-            final int index,
-            final int length)
-        {
-            switch (msgTypeId)
-            {
             case ResetFW.TYPE_ID:
                 final ResetFW reset = resetRO.wrap(buffer, index, index + length);
                 onReset(reset);
@@ -195,6 +180,10 @@ public final class EchoServerFactory implements StreamFactory
             case WindowFW.TYPE_ID:
                 final WindowFW window = windowRO.wrap(buffer, index, index + length);
                 onWindow(window);
+                break;
+            case ChallengeFW.TYPE_ID:
+                final ChallengeFW challenge = challengeRO.wrap(buffer, index, index + length);
+                onChallenge(challenge);
                 break;
             default:
                 // ignore
@@ -205,55 +194,78 @@ public final class EchoServerFactory implements StreamFactory
         private void onBegin(
             final BeginFW begin)
         {
-            final long traceId = begin.trace();
+            final long traceId = begin.traceId();
+            final long authorization = begin.authorization();
+            final long affinity = begin.affinity();
+            final OctetsFW extension = begin.extension();
 
-            router.setThrottle(replyId, this::onThrottle);
-            doBegin(receiver, routeId, replyId, traceId);
+            router.setThrottle(replyId, this::onMessage);
+            doBegin(receiver, routeId, replyId, traceId, authorization, affinity, extension);
         }
 
         private void onData(
             final DataFW data)
         {
-            final long traceId = data.trace();
+            final long traceId = data.traceId();
+            final long authorization = data.authorization();
             final int flags = data.flags();
-            final long groupId = data.groupId();
+            final long budgetId = data.budgetId();
             final int reserved = data.reserved();
             final OctetsFW payload = data.payload();
             final OctetsFW extension = data.extension();
 
-            doData(receiver, routeId, replyId, traceId, flags, groupId, reserved, payload, extension);
+            doData(receiver, routeId, replyId, traceId, authorization, flags, budgetId, reserved, payload, extension);
         }
 
         private void onEnd(
             final EndFW end)
         {
-            final long traceId = end.trace();
-            doEnd(receiver, routeId, replyId, traceId);
+            final long traceId = end.traceId();
+            final long authorization = end.authorization();
+            final OctetsFW extension = end.extension();
+
+            doEnd(receiver, routeId, replyId, traceId, authorization, extension);
         }
 
         private void onAbort(
             final AbortFW abort)
         {
-            final long traceId = abort.trace();
-            doAbort(receiver, routeId, replyId, traceId);
+            final long traceId = abort.traceId();
+            final long authorization = abort.authorization();
+            final OctetsFW extension = abort.extension();
+
+            doAbort(receiver, routeId, replyId, traceId, authorization, extension);
         }
 
         private void onReset(
             final ResetFW reset)
         {
-            final long traceId = reset.trace();
-            doReset(receiver, routeId, initialId, traceId);
+            final long traceId = reset.traceId();
+            final long authorization = reset.authorization();
+            final OctetsFW extension = reset.extension();
+
+            doReset(receiver, routeId, initialId, traceId, authorization, extension);
         }
 
         private void onWindow(
             final WindowFW window)
         {
-            final long traceId = window.trace();
+            final long traceId = window.traceId();
+            final long budgetId = window.budgetId();
             final int credit = window.credit();
             final int padding = window.padding();
-            final long groupId = window.groupId();
 
-            doWindow(receiver, routeId, initialId, traceId, credit, padding, groupId);
+            doWindow(receiver, routeId, initialId, traceId, budgetId, credit, padding);
+        }
+
+        private void onChallenge(
+            ChallengeFW challenge)
+        {
+            final long traceId = challenge.traceId();
+            final long authorization = challenge.authorization();
+            final OctetsFW extension = challenge.extension();
+
+            doChallenge(receiver, routeId, initialId, traceId, authorization, extension);
         }
     }
 
@@ -261,12 +273,18 @@ public final class EchoServerFactory implements StreamFactory
         final MessageConsumer receiver,
         final long routeId,
         final long streamId,
-        final long traceId)
+        final long traceId,
+        final long authorization,
+        final long affinity,
+        final OctetsFW extension)
     {
         final BeginFW begin = beginRW.wrap(writeBuffer, 0, writeBuffer.capacity())
                 .routeId(routeId)
                 .streamId(streamId)
-                .trace(traceId)
+                .traceId(traceId)
+                .authorization(authorization)
+                .affinity(affinity)
+                .extension(extension)
                 .build();
 
         receiver.accept(begin.typeId(), begin.buffer(), begin.offset(), begin.sizeof());
@@ -277,8 +295,9 @@ public final class EchoServerFactory implements StreamFactory
         final long routeId,
         final long streamId,
         final long traceId,
+        final long authorization,
         final int flags,
-        final long groupId,
+        final long budgetId,
         final int reserved,
         final OctetsFW payload,
         final OctetsFW extension)
@@ -286,9 +305,10 @@ public final class EchoServerFactory implements StreamFactory
         final DataFW data = dataRW.wrap(writeBuffer, 0, writeBuffer.capacity())
                 .routeId(routeId)
                 .streamId(streamId)
-                .trace(traceId)
+                .traceId(traceId)
+                .authorization(authorization)
                 .flags(flags)
-                .groupId(groupId)
+                .budgetId(budgetId)
                 .reserved(reserved)
                 .payload(payload)
                 .extension(extension)
@@ -301,12 +321,16 @@ public final class EchoServerFactory implements StreamFactory
         final MessageConsumer receiver,
         final long routeId,
         final long streamId,
-        final long traceId)
+        final long traceId,
+        final long authorization,
+        final OctetsFW extension)
     {
         final AbortFW abort = abortRW.wrap(writeBuffer, 0, writeBuffer.capacity())
                 .routeId(routeId)
                 .streamId(streamId)
-                .trace(traceId)
+                .traceId(traceId)
+                .authorization(authorization)
+                .extension(extension)
                 .build();
 
         receiver.accept(abort.typeId(), abort.buffer(), abort.offset(), abort.sizeof());
@@ -316,15 +340,38 @@ public final class EchoServerFactory implements StreamFactory
         final MessageConsumer receiver,
         final long routeId,
         final long streamId,
-        final long traceId)
+        final long traceId,
+        final long authorization,
+        final OctetsFW extension)
     {
         final EndFW end = endRW.wrap(writeBuffer, 0, writeBuffer.capacity())
                 .routeId(routeId)
                 .streamId(streamId)
-                .trace(traceId)
+                .traceId(traceId)
+                .authorization(authorization)
+                .extension(extension)
                 .build();
 
         receiver.accept(end.typeId(), end.buffer(), end.offset(), end.sizeof());
+    }
+
+    private void doReset(
+        final MessageConsumer sender,
+        final long routeId,
+        final long streamId,
+        final long traceId,
+        final long authorization,
+        final OctetsFW extension)
+    {
+        final ResetFW reset = resetRW.wrap(writeBuffer, 0, writeBuffer.capacity())
+               .routeId(routeId)
+               .streamId(streamId)
+               .traceId(traceId)
+               .authorization(authorization)
+               .extension(extension)
+               .build();
+
+        sender.accept(reset.typeId(), reset.buffer(), reset.offset(), reset.sizeof());
     }
 
     private void doWindow(
@@ -332,34 +379,38 @@ public final class EchoServerFactory implements StreamFactory
         final long routeId,
         final long streamId,
         final long traceId,
+        final long budgetId,
         final int credit,
-        final int padding,
-        final long groupId)
+        final int padding)
     {
         final WindowFW window = windowRW.wrap(writeBuffer, 0, writeBuffer.capacity())
                 .routeId(routeId)
                 .streamId(streamId)
-                .trace(traceId)
+                .traceId(traceId)
+                .budgetId(budgetId)
                 .credit(credit)
                 .padding(padding)
-                .groupId(groupId)
                 .build();
 
         sender.accept(window.typeId(), window.buffer(), window.offset(), window.sizeof());
     }
 
-    private void doReset(
+    private void doChallenge(
         final MessageConsumer sender,
         final long routeId,
         final long streamId,
-        final long traceId)
+        final long traceId,
+        final long authorization,
+        final OctetsFW extension)
     {
-        final ResetFW reset = resetRW.wrap(writeBuffer, 0, writeBuffer.capacity())
+        final ChallengeFW challenge = challengeRW.wrap(writeBuffer, 0, writeBuffer.capacity())
                .routeId(routeId)
                .streamId(streamId)
-               .trace(traceId)
+               .traceId(traceId)
+               .authorization(authorization)
+               .extension(extension)
                .build();
 
-        sender.accept(reset.typeId(), reset.buffer(), reset.offset(), reset.sizeof());
+        sender.accept(challenge.typeId(), challenge.buffer(), challenge.offset(), challenge.sizeof());
     }
 }

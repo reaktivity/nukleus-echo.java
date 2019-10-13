@@ -15,12 +15,9 @@
  */
 package org.reaktivity.nukleus.echo.internal.stream;
 
-import java.util.function.LongSupplier;
 import java.util.function.LongUnaryOperator;
-import java.util.function.Supplier;
 
 import org.agrona.MutableDirectBuffer;
-import org.reaktivity.nukleus.buffer.BufferPool;
 import org.reaktivity.nukleus.echo.internal.EchoConfiguration;
 import org.reaktivity.nukleus.route.RouteManager;
 import org.reaktivity.nukleus.stream.StreamFactory;
@@ -33,7 +30,6 @@ public final class EchoServerFactoryBuilder implements StreamFactoryBuilder
     private RouteManager router;
     private MutableDirectBuffer writeBuffer;
     private LongUnaryOperator supplyReplyId;
-    private LongSupplier supplyTrace;
 
     public EchoServerFactoryBuilder(
         EchoConfiguration config)
@@ -58,32 +54,10 @@ public final class EchoServerFactoryBuilder implements StreamFactoryBuilder
     }
 
     @Override
-    public StreamFactoryBuilder setInitialIdSupplier(
-        LongUnaryOperator supplyInitialId)
-    {
-        return this;
-    }
-
-    @Override
     public StreamFactoryBuilder setReplyIdSupplier(
         LongUnaryOperator supplyReplyId)
     {
         this.supplyReplyId = supplyReplyId;
-        return this;
-    }
-
-    @Override
-    public StreamFactoryBuilder setTraceSupplier(
-        LongSupplier supplyTrace)
-    {
-        this.supplyTrace = supplyTrace;
-        return this;
-    }
-
-    @Override
-    public StreamFactoryBuilder setBufferPoolSupplier(
-        Supplier<BufferPool> supplyBufferPool)
-    {
         return this;
     }
 
@@ -94,7 +68,6 @@ public final class EchoServerFactoryBuilder implements StreamFactoryBuilder
                 config,
                 router,
                 writeBuffer,
-                supplyReplyId,
-                supplyTrace);
+                supplyReplyId);
     }
 }
