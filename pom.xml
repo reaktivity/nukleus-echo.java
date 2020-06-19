@@ -6,7 +6,7 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>org.reaktivity</groupId>
   <artifactId>nukleus-echo</artifactId>
-  <version>0.16</version>
+  <version>0.17</version>
   <name>Echo Nukleus Implementation</name>
   <description>Echo Nukleus Implementation</description>
   <url>https://github.com/reaktivity/nukleus-echo.java</url>
@@ -53,8 +53,8 @@
 
     <nukleus.plugin.version>0.46</nukleus.plugin.version>
 
-    <nukleus.echo.spec.version>0.13</nukleus.echo.spec.version>
-    <reaktor.version>0.130</reaktor.version>
+    <nukleus.echo.spec.version>0.14</nukleus.echo.spec.version>
+    <reaktor.version>0.136</reaktor.version>
   </properties>
 
   <dependencies>
@@ -230,6 +230,9 @@
         <version>2.22.1</version>
         <configuration>
           <argLine>@{argLine}</argLine>
+          <excludes>
+            <exclude/>
+          </excludes>
         </configuration>
       </plugin>
       <plugin>
