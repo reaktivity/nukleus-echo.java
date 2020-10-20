@@ -29,6 +29,7 @@ import org.reaktivity.nukleus.echo.internal.types.stream.BeginFW;
 import org.reaktivity.nukleus.echo.internal.types.stream.ChallengeFW;
 import org.reaktivity.nukleus.echo.internal.types.stream.DataFW;
 import org.reaktivity.nukleus.echo.internal.types.stream.EndFW;
+import org.reaktivity.nukleus.echo.internal.types.stream.FlushFW;
 import org.reaktivity.nukleus.echo.internal.types.stream.ResetFW;
 import org.reaktivity.nukleus.echo.internal.types.stream.WindowFW;
 import org.reaktivity.nukleus.function.MessageConsumer;
@@ -45,11 +46,13 @@ public final class EchoServerFactory implements StreamFactory
     private final DataFW dataRO = new DataFW();
     private final EndFW endRO = new EndFW();
     private final AbortFW abortRO = new AbortFW();
+    private final FlushFW flushRO = new FlushFW();
 
     private final BeginFW.Builder beginRW = new BeginFW.Builder();
     private final DataFW.Builder dataRW = new DataFW.Builder();
     private final EndFW.Builder endRW = new EndFW.Builder();
     private final AbortFW.Builder abortRW = new AbortFW.Builder();
+    private final FlushFW.Builder flushRW = new FlushFW.Builder();
 
     private final ResetFW resetRO = new ResetFW();
     private final WindowFW windowRO = new WindowFW();
@@ -173,6 +176,10 @@ public final class EchoServerFactory implements StreamFactory
                 final AbortFW abort = abortRO.wrap(buffer, index, index + length);
                 onAbort(abort);
                 break;
+            case FlushFW.TYPE_ID:
+                final FlushFW flush = flushRO.wrap(buffer, index, index + length);
+                onFlush(flush);
+                break;
             case ResetFW.TYPE_ID:
                 final ResetFW reset = resetRO.wrap(buffer, index, index + length);
                 onReset(reset);
@@ -194,18 +201,25 @@ public final class EchoServerFactory implements StreamFactory
         private void onBegin(
             final BeginFW begin)
         {
+            final long sequence = begin.sequence();
+            final long acknowledge = begin.acknowledge();
+            final int maximum = begin.maximum();
             final long traceId = begin.traceId();
             final long authorization = begin.authorization();
             final long affinity = begin.affinity();
             final OctetsFW extension = begin.extension();
 
             router.setThrottle(replyId, this::onMessage);
-            doBegin(receiver, routeId, replyId, traceId, authorization, affinity, extension);
+            doBegin(receiver, routeId, replyId, sequence, acknowledge, maximum, traceId,
+                    authorization, affinity, extension);
         }
 
         private void onData(
             final DataFW data)
         {
+            final long sequence = data.sequence();
+            final long acknowledge = data.acknowledge();
+            final int maximum = data.maximum();
             final long traceId = data.traceId();
             final long authorization = data.authorization();
             final int flags = data.flags();
@@ -214,58 +228,94 @@ public final class EchoServerFactory implements StreamFactory
             final OctetsFW payload = data.payload();
             final OctetsFW extension = data.extension();
 
-            doData(receiver, routeId, replyId, traceId, authorization, flags, budgetId, reserved, payload, extension);
+            doData(receiver, routeId, replyId, sequence, acknowledge, maximum, traceId,
+                    authorization, flags, budgetId, reserved, payload, extension);
+        }
+
+        private void onFlush(
+            final FlushFW flush)
+        {
+            final long sequence = flush.sequence();
+            final long acknowledge = flush.acknowledge();
+            final int maximum = flush.maximum();
+            final long traceId = flush.traceId();
+            final long authorization = flush.authorization();
+            final long budgetId = flush.budgetId();
+            final int reserved = flush.reserved();
+            final OctetsFW extension = flush.extension();
+
+            doFlush(receiver, routeId, replyId, sequence, acknowledge, maximum, traceId,
+                    authorization, budgetId, reserved, extension);
         }
 
         private void onEnd(
             final EndFW end)
         {
+            final long sequence = end.sequence();
+            final long acknowledge = end.acknowledge();
+            final int maximum = end.maximum();
             final long traceId = end.traceId();
             final long authorization = end.authorization();
             final OctetsFW extension = end.extension();
 
-            doEnd(receiver, routeId, replyId, traceId, authorization, extension);
+            doEnd(receiver, routeId, replyId, sequence, acknowledge, maximum, traceId,
+                    authorization, extension);
         }
 
         private void onAbort(
             final AbortFW abort)
         {
+            final long sequence = abort.sequence();
+            final long acknowledge = abort.acknowledge();
+            final int maximum = abort.maximum();
             final long traceId = abort.traceId();
             final long authorization = abort.authorization();
             final OctetsFW extension = abort.extension();
 
-            doAbort(receiver, routeId, replyId, traceId, authorization, extension);
+            doAbort(receiver, routeId, replyId, sequence, acknowledge, maximum, traceId,
+                    authorization, extension);
         }
 
         private void onReset(
             final ResetFW reset)
         {
+            final long sequence = reset.sequence();
+            final long acknowledge = reset.acknowledge();
+            final int maximum = reset.maximum();
             final long traceId = reset.traceId();
             final long authorization = reset.authorization();
             final OctetsFW extension = reset.extension();
 
-            doReset(receiver, routeId, initialId, traceId, authorization, extension);
+            doReset(receiver, routeId, initialId, sequence, acknowledge, maximum, traceId,
+                    authorization, extension);
         }
 
         private void onWindow(
             final WindowFW window)
         {
+            final long sequence = window.sequence();
+            final long acknowledge = window.acknowledge();
+            final int maximum = window.maximum();
             final long traceId = window.traceId();
             final long budgetId = window.budgetId();
-            final int credit = window.credit();
             final int padding = window.padding();
 
-            doWindow(receiver, routeId, initialId, traceId, budgetId, credit, padding);
+            doWindow(receiver, routeId, initialId, sequence, acknowledge, maximum, traceId,
+                    budgetId, padding);
         }
 
         private void onChallenge(
             ChallengeFW challenge)
         {
+            final long sequence = challenge.sequence();
+            final long acknowledge = challenge.acknowledge();
+            final int maximum = challenge.maximum();
             final long traceId = challenge.traceId();
             final long authorization = challenge.authorization();
             final OctetsFW extension = challenge.extension();
 
-            doChallenge(receiver, routeId, initialId, traceId, authorization, extension);
+            doChallenge(receiver, routeId, initialId, sequence, acknowledge, maximum, traceId,
+                    authorization, extension);
         }
     }
 
@@ -273,6 +323,9 @@ public final class EchoServerFactory implements StreamFactory
         final MessageConsumer receiver,
         final long routeId,
         final long streamId,
+        final long sequence,
+        final long acknowledge,
+        final int maximum,
         final long traceId,
         final long authorization,
         final long affinity,
@@ -281,6 +334,9 @@ public final class EchoServerFactory implements StreamFactory
         final BeginFW begin = beginRW.wrap(writeBuffer, 0, writeBuffer.capacity())
                 .routeId(routeId)
                 .streamId(streamId)
+                .sequence(sequence)
+                .acknowledge(acknowledge)
+                .maximum(maximum)
                 .traceId(traceId)
                 .authorization(authorization)
                 .affinity(affinity)
@@ -294,6 +350,9 @@ public final class EchoServerFactory implements StreamFactory
         final MessageConsumer receiver,
         final long routeId,
         final long streamId,
+        final long sequence,
+        final long acknowledge,
+        final int maximum,
         final long traceId,
         final long authorization,
         final int flags,
@@ -305,6 +364,9 @@ public final class EchoServerFactory implements StreamFactory
         final DataFW data = dataRW.wrap(writeBuffer, 0, writeBuffer.capacity())
                 .routeId(routeId)
                 .streamId(streamId)
+                .sequence(sequence)
+                .acknowledge(acknowledge)
+                .maximum(maximum)
                 .traceId(traceId)
                 .authorization(authorization)
                 .flags(flags)
@@ -317,10 +379,42 @@ public final class EchoServerFactory implements StreamFactory
         receiver.accept(data.typeId(), data.buffer(), data.offset(), data.sizeof());
     }
 
+    private void doFlush(
+        final MessageConsumer receiver,
+        final long routeId,
+        final long streamId,
+        final long sequence,
+        final long acknowledge,
+        final int maximum,
+        final long traceId,
+        final long authorization,
+        final long budgetId,
+        final int reserved,
+        final OctetsFW extension)
+    {
+        final FlushFW flush = flushRW.wrap(writeBuffer, 0, writeBuffer.capacity())
+                .routeId(routeId)
+                .streamId(streamId)
+                .sequence(sequence)
+                .acknowledge(acknowledge)
+                .maximum(maximum)
+                .traceId(traceId)
+                .authorization(authorization)
+                .budgetId(budgetId)
+                .reserved(reserved)
+                .extension(extension)
+                .build();
+
+        receiver.accept(flush.typeId(), flush.buffer(), flush.offset(), flush.sizeof());
+    }
+
     private void doAbort(
         final MessageConsumer receiver,
         final long routeId,
         final long streamId,
+        final long sequence,
+        final long acknowledge,
+        final int maximum,
         final long traceId,
         final long authorization,
         final OctetsFW extension)
@@ -328,6 +422,9 @@ public final class EchoServerFactory implements StreamFactory
         final AbortFW abort = abortRW.wrap(writeBuffer, 0, writeBuffer.capacity())
                 .routeId(routeId)
                 .streamId(streamId)
+                .sequence(sequence)
+                .acknowledge(acknowledge)
+                .maximum(maximum)
                 .traceId(traceId)
                 .authorization(authorization)
                 .extension(extension)
@@ -340,6 +437,9 @@ public final class EchoServerFactory implements StreamFactory
         final MessageConsumer receiver,
         final long routeId,
         final long streamId,
+        final long sequence,
+        final long acknowledge,
+        final int maximum,
         final long traceId,
         final long authorization,
         final OctetsFW extension)
@@ -347,6 +447,9 @@ public final class EchoServerFactory implements StreamFactory
         final EndFW end = endRW.wrap(writeBuffer, 0, writeBuffer.capacity())
                 .routeId(routeId)
                 .streamId(streamId)
+                .sequence(sequence)
+                .acknowledge(acknowledge)
+                .maximum(maximum)
                 .traceId(traceId)
                 .authorization(authorization)
                 .extension(extension)
@@ -359,6 +462,9 @@ public final class EchoServerFactory implements StreamFactory
         final MessageConsumer sender,
         final long routeId,
         final long streamId,
+        final long sequence,
+        final long acknowledge,
+        final int maximum,
         final long traceId,
         final long authorization,
         final OctetsFW extension)
@@ -366,6 +472,9 @@ public final class EchoServerFactory implements StreamFactory
         final ResetFW reset = resetRW.wrap(writeBuffer, 0, writeBuffer.capacity())
                .routeId(routeId)
                .streamId(streamId)
+               .sequence(sequence)
+               .acknowledge(acknowledge)
+               .maximum(maximum)
                .traceId(traceId)
                .authorization(authorization)
                .extension(extension)
@@ -378,17 +487,21 @@ public final class EchoServerFactory implements StreamFactory
         final MessageConsumer sender,
         final long routeId,
         final long streamId,
+        final long sequence,
+        final long acknowledge,
+        final int maximum,
         final long traceId,
         final long budgetId,
-        final int credit,
         final int padding)
     {
         final WindowFW window = windowRW.wrap(writeBuffer, 0, writeBuffer.capacity())
                 .routeId(routeId)
                 .streamId(streamId)
+                .sequence(sequence)
+                .acknowledge(acknowledge)
+                .maximum(maximum)
                 .traceId(traceId)
                 .budgetId(budgetId)
-                .credit(credit)
                 .padding(padding)
                 .build();
 
@@ -399,6 +512,9 @@ public final class EchoServerFactory implements StreamFactory
         final MessageConsumer sender,
         final long routeId,
         final long streamId,
+        final long sequence,
+        final long acknowledge,
+        final int maximum,
         final long traceId,
         final long authorization,
         final OctetsFW extension)
@@ -406,6 +522,9 @@ public final class EchoServerFactory implements StreamFactory
         final ChallengeFW challenge = challengeRW.wrap(writeBuffer, 0, writeBuffer.capacity())
                .routeId(routeId)
                .streamId(streamId)
+               .sequence(sequence)
+               .acknowledge(acknowledge)
+               .maximum(maximum)
                .traceId(traceId)
                .authorization(authorization)
                .extension(extension)
