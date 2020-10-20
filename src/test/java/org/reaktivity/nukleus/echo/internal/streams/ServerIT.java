@@ -72,4 +72,13 @@ public class ServerIT
     {
         k3po.finish();
     }
+
+    @Test
+    @Specification({
+        "${route}/server/controller",
+        "${streams}/client.sent.challenge/client"})
+    public void shouldEchoClientSentChallenge() throws Exception
+    {
+        k3po.finish();
+    }
 }
