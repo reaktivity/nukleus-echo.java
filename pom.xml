@@ -6,7 +6,7 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>org.reaktivity</groupId>
   <artifactId>nukleus-echo</artifactId>
-  <version>0.22</version>
+  <version>0.23</version>
   <name>Echo Nukleus Implementation</name>
   <description>Echo Nukleus Implementation</description>
   <url>https://github.com/reaktivity/nukleus-echo.java</url>
@@ -58,10 +58,10 @@
 
     <k3po.version>3.1.0</k3po.version>
 
-    <nukleus.plugin.version>0.84</nukleus.plugin.version>
+    <nukleus.plugin.version>0.85</nukleus.plugin.version>
 
-    <nukleus.echo.spec.version>0.19</nukleus.echo.spec.version>
-    <reaktor.version>0.161</reaktor.version>
+    <nukleus.echo.spec.version>0.20</nukleus.echo.spec.version>
+    <reaktor.version>0.162</reaktor.version>
   </properties>
 
   <dependencies>
@@ -226,6 +226,7 @@
         <artifactId>jacoco-maven-plugin</artifactId>
         <version>0.8.6</version>
         <configuration>
+          <propertyName>jacoco.java.option</propertyName>
           <includes>
             <include>org/reaktivity/nukleus/echo/**</include>
           </includes>
@@ -260,14 +261,33 @@
         </executions>
       </plugin>
       <plugin>
+        <groupId>org.moditect</groupId>
+        <artifactId>moditect-maven-plugin</artifactId>
+        <version>1.0.0.RC1</version>
+        <configuration>
+          <module>
+            <moduleInfoFile>src/main/moditect/module-info.java</moduleInfoFile>
+          </module>
+        </configuration>
+        <executions>
+          <execution>
+            <phase>package</phase>
+            <goals>
+              <goal>add-module-info</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
+      <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-surefire-plugin</artifactId>
-        <version>2.22.1</version>
+        <version>3.0.0-M5</version>
         <configuration>
-          <argLine>@{argLine}</argLine>
-          <excludes>
-            <exclude/>
-          </excludes>
+          <javaOptions>
+            <additionalOptions>
+              <jacoco>${jacoco.java.option}</jacoco>
+            </additionalOptions>
+          </javaOptions>
         </configuration>
       </plugin>
       <plugin>
@@ -299,9 +319,13 @@
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-failsafe-plugin</artifactId>
-        <version>2.22.1</version>
+        <version>3.0.0-M4</version>
         <configuration>
-          <argLine>@{argLine}</argLine>
+          <javaOptions>
+            <additionalOptions>
+              <jacoco>${jacoco.java.option}</jacoco>
+            </additionalOptions>
+          </javaOptions>
         </configuration>
         <executions>
           <execution>
@@ -372,6 +396,47 @@
         </executions>
       </plugin>
     </plugins>
+    <pluginManagement>
+      <plugins>
+        <plugin>
+          <groupId>org.eclipse.m2e</groupId>
+          <artifactId>lifecycle-mapping</artifactId>
+          <version>1.0.0</version>
+          <configuration>
+            <lifecycleMappingMetadata>
+              <pluginExecutions>
+                <pluginExecution>
+                  <pluginExecutionFilter>
+                    <groupId>org.jasig.maven</groupId>
+                    <artifactId>maven-notice-plugin</artifactId>
+                    <versionRange>[1.1.0,)</versionRange>
+                    <goals>
+                      <goal>check</goal>
+                    </goals>
+                  </pluginExecutionFilter>
+                  <action>
+                    <ignore></ignore>
+                  </action>
+                </pluginExecution>
+                <pluginExecution>
+                  <pluginExecutionFilter>
+                    <groupId>org.moditect</groupId>
+                    <artifactId>moditect-maven-plugin</artifactId>
+                    <versionRange>[1.0.0.RC1,)</versionRange>
+                    <goals>
+                      <goal>add-module-info</goal>
+                    </goals>
+                  </pluginExecutionFilter>
+                  <action>
+                    <ignore></ignore>
+                  </action>
+                </pluginExecution>
+              </pluginExecutions>
+            </lifecycleMappingMetadata>
+          </configuration>
+        </plugin>
+      </plugins>
+    </pluginManagement>
   </build>
 
   <profiles>
