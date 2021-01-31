@@ -15,4 +15,11 @@
  */
 module org.reaktivity.nukleus.echo
 {
+    requires org.reaktivity.reaktor;
+
+    provides org.reaktivity.nukleus.NukleusFactorySpi
+        with org.reaktivity.nukleus.echo.internal.EchoNukleusFactorySpi;
+
+    provides org.reaktivity.nukleus.ControllerFactorySpi
+        with org.reaktivity.nukleus.echo.internal.EchoControllerFactorySpi;
 }
