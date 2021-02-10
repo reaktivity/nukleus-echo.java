@@ -15,7 +15,8 @@
  */
 package org.reaktivity.nukleus.echo.internal;
 
-import org.reaktivity.nukleus.Nukleus;
+import org.reaktivity.reaktor.nukleus.ElektronContext;
+import org.reaktivity.reaktor.nukleus.Nukleus;
 
 final class EchoNukleus implements Nukleus
 {
@@ -42,8 +43,9 @@ final class EchoNukleus implements Nukleus
     }
 
     @Override
-    public EchoElektron supplyElektron()
+    public EchoElektron supplyElektron(
+        ElektronContext context)
     {
-        return new EchoElektron(config);
+        return new EchoElektron(config, context);
     }
 }

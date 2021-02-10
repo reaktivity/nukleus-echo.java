@@ -22,8 +22,8 @@ import java.util.function.LongUnaryOperator;
 import org.agrona.DirectBuffer;
 import org.agrona.MutableDirectBuffer;
 import org.reaktivity.nukleus.echo.internal.EchoConfiguration;
+import org.reaktivity.nukleus.echo.internal.EchoRouter;
 import org.reaktivity.nukleus.echo.internal.types.OctetsFW;
-import org.reaktivity.nukleus.echo.internal.types.control.RouteFW;
 import org.reaktivity.nukleus.echo.internal.types.stream.AbortFW;
 import org.reaktivity.nukleus.echo.internal.types.stream.BeginFW;
 import org.reaktivity.nukleus.echo.internal.types.stream.ChallengeFW;
@@ -32,16 +32,13 @@ import org.reaktivity.nukleus.echo.internal.types.stream.EndFW;
 import org.reaktivity.nukleus.echo.internal.types.stream.FlushFW;
 import org.reaktivity.nukleus.echo.internal.types.stream.ResetFW;
 import org.reaktivity.nukleus.echo.internal.types.stream.WindowFW;
-import org.reaktivity.nukleus.function.MessageConsumer;
-import org.reaktivity.nukleus.function.MessageFunction;
-import org.reaktivity.nukleus.function.MessagePredicate;
-import org.reaktivity.nukleus.route.RouteManager;
-import org.reaktivity.nukleus.stream.StreamFactory;
+import org.reaktivity.reaktor.config.Binding;
+import org.reaktivity.reaktor.nukleus.ElektronContext;
+import org.reaktivity.reaktor.nukleus.function.MessageConsumer;
+import org.reaktivity.reaktor.nukleus.stream.StreamFactory;
 
 public final class EchoServerFactory implements StreamFactory
 {
-    private final RouteFW routeRO = new RouteFW();
-
     private final BeginFW beginRO = new BeginFW();
     private final DataFW dataRO = new DataFW();
     private final EndFW endRO = new EndFW();
@@ -62,22 +59,19 @@ public final class EchoServerFactory implements StreamFactory
     private final WindowFW.Builder windowRW = new WindowFW.Builder();
     private final ChallengeFW.Builder challengeRW = new ChallengeFW.Builder();
 
-    private final RouteManager router;
     private final MutableDirectBuffer writeBuffer;
     private final LongUnaryOperator supplyReplyId;
 
-    private final MessageFunction<RouteFW> wrapRoute;
+    private final EchoRouter router;
 
     public EchoServerFactory(
         EchoConfiguration config,
-        RouteManager router,
-        MutableDirectBuffer writeBuffer,
-        LongUnaryOperator supplyReplyId)
+        ElektronContext context,
+        EchoRouter router)
     {
-        this.router = requireNonNull(router);
-        this.writeBuffer = requireNonNull(writeBuffer);
-        this.supplyReplyId = requireNonNull(supplyReplyId);
-        this.wrapRoute = this::wrapRoute;
+        this.writeBuffer = requireNonNull(context.writeBuffer());
+        this.supplyReplyId = context::supplyReplyId;
+        this.router = router;
     }
 
     @Override
@@ -106,13 +100,13 @@ public final class EchoServerFactory implements StreamFactory
         final MessageConsumer sender)
     {
         final long routeId = begin.routeId();
+        final long authorization = begin.authorization();
 
-        final MessagePredicate filter = (t, b, o, l) -> true;
-        final RouteFW route = router.resolve(routeId, begin.authorization(), filter, wrapRoute);
+        final Binding binding = router.resolve(routeId, authorization);
 
         MessageConsumer newStream = null;
 
-        if (route != null)
+        if (binding != null)
         {
             final long initialId = begin.streamId();
 
@@ -123,15 +117,6 @@ public final class EchoServerFactory implements StreamFactory
         }
 
         return newStream;
-    }
-
-    private RouteFW wrapRoute(
-        int msgTypeId,
-        DirectBuffer buffer,
-        int index,
-        int length)
-    {
-        return routeRO.wrap(buffer, index, index + length);
     }
 
     private final class EchoServer
@@ -209,7 +194,6 @@ public final class EchoServerFactory implements StreamFactory
             final long affinity = begin.affinity();
             final OctetsFW extension = begin.extension();
 
-            router.setThrottle(replyId, this::onMessage);
             doBegin(receiver, routeId, replyId, sequence, acknowledge, maximum, traceId,
                     authorization, affinity, extension);
         }

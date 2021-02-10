@@ -40,7 +40,6 @@ public class ServerIT
         .commandBufferCapacity(1024)
         .responseBufferCapacity(1024)
         .counterValuesBufferCapacity(4096)
-        .nukleus("echo"::equals)
         .clean();
 
     @Rule
