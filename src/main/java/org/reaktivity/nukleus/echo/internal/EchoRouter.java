@@ -15,30 +15,40 @@
  */
 package org.reaktivity.nukleus.echo.internal;
 
-import org.reaktivity.nukleus.Configuration;
-import org.reaktivity.nukleus.ControllerBuilder;
-import org.reaktivity.nukleus.ControllerFactorySpi;
+import org.agrona.collections.Long2ObjectHashMap;
+import org.reaktivity.reaktor.config.Binding;
 
-public final class EchoControllerFactorySpi implements ControllerFactorySpi<EchoController>
+public final class EchoRouter
 {
-    @Override
-    public String name()
+    private final Long2ObjectHashMap<Binding> bindings;
+
+    EchoRouter()
     {
-        return EchoNukleus.NAME;
+        this.bindings = new Long2ObjectHashMap<>();
+    }
+
+    public void attach(
+        Binding binding)
+    {
+        bindings.put(binding.id, binding);
+    }
+
+    public Binding resolve(
+        long routeId,
+        long authorization)
+    {
+        return bindings.get(routeId);
+    }
+
+    public void detach(
+        long routeId)
+    {
+        bindings.remove(routeId);
     }
 
     @Override
-    public Class<EchoController> kind()
+    public String toString()
     {
-        return EchoController.class;
-    }
-
-    @Override
-    public EchoController create(
-        Configuration config,
-        ControllerBuilder<EchoController> builder)
-    {
-        return builder.setFactory(EchoController::new)
-                      .build();
+        return String.format("%s %s", getClass().getSimpleName(), bindings);
     }
 }
