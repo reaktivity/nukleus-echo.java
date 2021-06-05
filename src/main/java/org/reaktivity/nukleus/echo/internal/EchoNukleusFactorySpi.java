@@ -15,8 +15,8 @@
  */
 package org.reaktivity.nukleus.echo.internal;
 
-import org.reaktivity.nukleus.Configuration;
-import org.reaktivity.nukleus.NukleusFactorySpi;
+import org.reaktivity.reaktor.nukleus.Configuration;
+import org.reaktivity.reaktor.nukleus.NukleusFactorySpi;
 
 public final class EchoNukleusFactorySpi implements NukleusFactorySpi
 {

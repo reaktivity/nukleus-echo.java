@@ -15,7 +15,7 @@
  */
 package org.reaktivity.nukleus.echo.internal;
 
-import org.reaktivity.nukleus.Configuration;
+import org.reaktivity.reaktor.nukleus.Configuration;
 
 public class EchoConfiguration extends Configuration
 {

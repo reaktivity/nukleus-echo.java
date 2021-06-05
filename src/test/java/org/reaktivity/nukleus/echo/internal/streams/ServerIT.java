@@ -26,12 +26,12 @@ import org.junit.rules.Timeout;
 import org.kaazing.k3po.junit.annotation.Specification;
 import org.kaazing.k3po.junit.rules.K3poRule;
 import org.reaktivity.reaktor.test.ReaktorRule;
+import org.reaktivity.reaktor.test.annotation.Configuration;
 
 public class ServerIT
 {
     private final K3poRule k3po = new K3poRule()
-            .addScriptRoot("route", "org/reaktivity/specification/nukleus/echo/control/route")
-            .addScriptRoot("streams", "org/reaktivity/specification/nukleus/echo/streams/rfc862");
+        .addScriptRoot("streams", "org/reaktivity/specification/nukleus/echo/streams/rfc862");
 
     private final TestRule timeout = new DisableOnDebug(new Timeout(10, SECONDS));
 
@@ -40,15 +40,15 @@ public class ServerIT
         .commandBufferCapacity(1024)
         .responseBufferCapacity(1024)
         .counterValuesBufferCapacity(4096)
-        .nukleus("echo"::equals)
+        .configurationRoot("org/reaktivity/specification/nukleus/echo/config")
         .clean();
 
     @Rule
     public final TestRule chain = outerRule(reaktor).around(k3po).around(timeout);
 
     @Test
+    @Configuration("server.json")
     @Specification({
-        "${route}/server/controller",
         "${streams}/connection.established/client"})
     public void shouldEstablishConnection() throws Exception
     {
@@ -56,8 +56,8 @@ public class ServerIT
     }
 
     @Test
+    @Configuration("server.json")
     @Specification({
-        "${route}/server/controller",
         "${streams}/client.sent.data/client"})
     public void shouldEchoClientSentData() throws Exception
     {
@@ -65,8 +65,8 @@ public class ServerIT
     }
 
     @Test
+    @Configuration("server.json")
     @Specification({
-        "${route}/server/controller",
         "${streams}/client.sent.flush/client"})
     public void shouldEchoClientSentFlush() throws Exception
     {
@@ -74,8 +74,8 @@ public class ServerIT
     }
 
     @Test
+    @Configuration("server.json")
     @Specification({
-        "${route}/server/controller",
         "${streams}/client.sent.challenge/client"})
     public void shouldEchoClientSentChallenge() throws Exception
     {
